@@ -6,7 +6,7 @@ from mapgen import generate, Heatmap
 
 SEED = 1
 np.random.seed(SEED)
-MAX_ITER = 1000
+MAX_ITER = 500
 with open("config.json") as config_file:
     config = json.load(config_file)
 
@@ -18,9 +18,15 @@ def plotRoad(segments):
     plt.axis('scaled')
     plt.show()
 
+def plotGraph(graph):
+    for edge in graph.edges.keys():
+        x, y = np.transpose((edge[0], edge[1]))
+        line_width = 1.5 if graph.edges[edge]["highway"] else 1
+        plt.plot(x, y, color=graph.edges[edge]["color"], linewidth=line_width)
+    plt.axis('scaled')
+    plt.show()
 
 generator = generate(SEED)
 for i in range(MAX_ITER):
     generator.step()
-    #print(generator.queue)
-plotRoad(generator.segments)
+plotGraph(generator.graph)
