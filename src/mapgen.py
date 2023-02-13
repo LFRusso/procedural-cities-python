@@ -178,8 +178,8 @@ class Generator:
             road.color = "red"
             return True
 
+        # 2. Checking snap to crossing within radius check
         for other in closest_roads:
-            # 2. Checking snap to crossing within radius check
             if(distance(road.end, other.end) <= config["ROAD_SNAP_DISTANCE"]):
                 point = other.end
                 road.end = point
@@ -189,11 +189,13 @@ class Generator:
                 for link in links:
                     if (((~np.isclose(link.start, road.end)).sum==0 and (~np.isclose(link.end, road.start)).sum==0) or
                         ((~np.isclose(link.start, road.start)).sum==0 and (~np.isclose(link.end, road.end)).sum==0)):
+                        print("here 1")
                         return False
                 
                 for link in links:
                     containing = link.linksForEndContaining(other)
                     if (containing == None):
+                        print("here 2")
                         return False
                     link.links[containing].append(road)
                     road.links["f"].append(link)
@@ -203,8 +205,8 @@ class Generator:
                 road.color = "blue"
                 return True
 
+        # 3. Intersection within radius check
         for other in closest_roads:
-            # 3. Intersection within radius check
             point, distance_segment = distanceToLine(road.end, other)
             if (distance_segment < config["ROAD_SNAP_DISTANCE"]):
                 road.end = point
@@ -330,8 +332,6 @@ def distanceToLine(point, segment):
 
     return (Px, Py), d
 
-
-
 def segmentFromDirection(start, direction=90, time_step=0, highway=False, color="black", 
                          severed=False, length=config["DEFAULT_SEGMENT_LENGTH"]):
     x = start[0] + length * np.sin((direction * np.pi) / 180)
@@ -352,6 +352,7 @@ def randomStraightAngle():
     return np.random.uniform(-15, 15)
 
 def randomBranchAngle():
+    #return np.random.uniform(-0, 0)
     return np.random.uniform(-3, 3)
 
 def generate(seed):
