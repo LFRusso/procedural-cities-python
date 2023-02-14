@@ -23,6 +23,10 @@ class Heatmap:
     def opulationAt(self, x, y):
         return self.noise([x/WIDTH, y/HEIGHT])
 
+class Graph:
+    def __init__(self):
+        self.edges = {}
+        self.nodes = []
 
 class Segment:
     def __init__(self, start, end, time_step=0, highway=False, color="black", severed=False, previous_road=None):
@@ -36,33 +40,9 @@ class Segment:
         self.length = config["HIGHWAY_SEGMENT_LENGTH"] if highway else config["DEFAULT_SEGMENT_LENGTH"]
         self.previous_road = previous_road
 
-        self.links = {"b": [], "f": []}
-
     def direction(self):
         aux_vec = (self.end[0]-self.start[0], self.end[1]-self.start[1])
         return -1 * np.sign(np.cross((0,1), aux_vec)) * getAngle((0, 1), aux_vec)
-
-    def linksForEndContaining(self, segment):
-        if (segment in self.links["b"]):
-            return "b"
-        elif (segment in self.links["f"]):
-            return "f"
-        else:
-            return None
-
-    def setupBranchLinks(self):
-        for link in self.previous_road.links["f"]:
-            self.links["b"].append(link)
-            containing_direction = link.linksForEndContaining(self.previous_road)
-            if (containing_direction == None):
-                return
-            link.links[containing_direction].append(self)
-        self.previous_road.links["f"].apppend(self)
-        self.links["b"].append(previous_road)
-        return self.links["b"]
-            
-        
-
 
 
 class Generator:
@@ -70,6 +50,7 @@ class Generator:
         self.seed = seed
         self.segments = []
         self.heatmap = Heatmap(seed)
+        self.graph = Graph()
 
         self.highway_count = 0
         self.queue = np.array(self.makeInitialSegment())
@@ -105,20 +86,12 @@ class Generator:
         new_segment_b = Segment(start=point, end=segment.end, time_step=0, 
                                 highway=segment.highway, severed=True, previous_road=segment.previous_road)
         
-        new_segment_a.links["b"] = segment.links["b"]
-        new_segment_a.links["f"] = [new_segment_b]
-        new_segment_b.links["b"] = [new_segment_a]
-        new_segment_b.links["f"] = segment.links["f"]
         self.segments += [new_segment_a, new_segment_b]
-
-        # go through all linked roads at that end, and replace their inverse references from referring to this to referring to the newly created segment
-        for link in segment.links["b"]:
-            #link.links["f"].remove(segment)
-            link.links["b"].append(new_segment_b)
-        for link in segment.links["f"]:
-            #link.links["b"].remove(segment)
-            link.links["f"].append(new_segment_a)
-
+        
+        self.graph.nodes.append(point)
+        self.graph.edges[(segment.start, point)] = {"highway": segment.highway, "color": segment.color}
+        self.graph.edges[(point, segment.end)] = {"highway": segment.highway, "color": segment.color}
+        del self.graph.edges[(segment.start, segment.end)]
         del(segment)
 
         return new_segment_a, new_segment_b
@@ -172,10 +145,8 @@ class Generator:
             segment_a, segment_b = self.splitSegment(other, intersection)
             road.end = intersection
             road.severed = True
-            segment_a.links["f"].append(road)
-            segment_b.links["b"].append(road)
-            road.links["f"] += [segment_a, segment_b]
             road.color = "red"
+            self.graph.edges[(road.start, intersection)] = {"highway": road.highway, "color": "red"}
             return True
 
         # 2. Checking snap to crossing within radius check
@@ -185,24 +156,8 @@ class Generator:
                 road.end = point
                 road.severed = True
 
-                links = other.links["f"]
-                for link in links:
-                    if (((~np.isclose(link.start, road.end)).sum==0 and (~np.isclose(link.end, road.start)).sum==0) or
-                        ((~np.isclose(link.start, road.start)).sum==0 and (~np.isclose(link.end, road.end)).sum==0)):
-                        print("here 1")
-                        return False
-                
-                for link in links:
-                    containing = link.linksForEndContaining(other)
-                    if (containing == None):
-                        print("here 2")
-                        return False
-                    link.links[containing].append(road)
-                    road.links["f"].append(link)
-
-                other.links["f"].append(road)
-                road.links["f"].append(other)
                 road.color = "blue"
+                self.graph.edges[(road.start, point)] = {"highway": road.highway, "color": "blue"}
                 return True
 
         # 3. Intersection within radius check
@@ -218,12 +173,16 @@ class Generator:
                 if angle < config["MINIMUM_INTERSECTION_DEVIATION"]:
                     return False
                 segment_a, segment_b = self.splitSegment(other, point)
-                segment_a.links["f"].append(road)
-                segment_b.links["b"].append(road)
-                road.links["f"] += [segment_a, segment_b]
                 road.color = "green"
+                self.graph.edges[(road.start, point)] = {"highway": road.highway, "color": "green"}
                 return True
 
+        # Adding new road to the graph
+        if road.start not in self.graph.nodes:
+            self.graph.nodes.append(road.start)
+        if road.end not in self.graph.nodes:
+            self.graph.nodes.append(road.end)
+        self.graph.edges[(road.start, road.end)] = {"highway": road.highway, "color": "black"}
         return True
 
     # Generate next roads according to the global goals from a build road
