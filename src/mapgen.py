@@ -233,7 +233,7 @@ class Generator:
                 if (max_pop > config["HIGHWAY_BRANCH_POPULATION_THRESHOLD"]):
                     if (np.random.random() < config["HIGHWAY_BRANCH_PROBABILITY"]):
                         branches.append(continueRoad(road, -90 + randomBranchAngle()))
-                    #if (np.random.random() < config["HIGHWAY_BRANCH_PROBABILITY"]):
+                    if (np.random.random() < config["HIGHWAY_BRANCH_PROBABILITY"]):
                         branches.append(continueRoad(road, 90 + randomBranchAngle()))
             elif straight_pop > config["NORMAL_BRANCH_POPULATION_THRESHOLD"]: #or True: # TO DO: check heatmapp
                 branches.append(continue_straight)
@@ -243,7 +243,6 @@ class Generator:
                 if (straight_pop > config["NORMAL_BRANCH_POPULATION_THRESHOLD"]): #or True: # TO DO: check heatmapp
                     if (np.random.random() < config["DEFAULT_BRANCH_PROBABILITY"]):
                         branches.append(branchRoad(road, -90 + randomBranchAngle()))
-                    #if (np.random.random() < config["DEFAULT_BRANCH_PROBABILITY"]):
                         branches.append(branchRoad(road, 90 + randomBranchAngle()))
 
             
@@ -336,8 +335,8 @@ def randomStraightAngle():
     return np.random.uniform(-15, 15)
 
 def randomBranchAngle():
-    #return np.random.uniform(-0, 0)
-    return np.random.uniform(-3, 3)
+    return np.random.uniform(-0, 0)
+    #return np.random.uniform(-3, 3)
 
 def generate(x, y, width, height, seed):
     return Generator(x, y, width, height, seed)
