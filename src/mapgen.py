@@ -14,14 +14,16 @@ with open("config.json") as config_file:
     config = json.load(config_file)
 
 class Heatmap:
-    def __init__(self, seed):
+    def __init__(self, seed, width, height):
         self.noise = PerlinNoise(octaves=3, seed=seed)
+        self.width = width
+        self.height = height
 
     def populationOnRoad(self, road):
         return (self.opulationAt(*road.start) + self.opulationAt(*road.end)) / 2
     
     def opulationAt(self, x, y):
-        return self.noise([x/WIDTH, y/HEIGHT])
+        return self.noise([x/50, y/50])
 
 class Graph:
     def __init__(self):
@@ -46,10 +48,15 @@ class Segment:
 
 
 class Generator:
-    def __init__(self, seed):
+    def __init__(self, x, y, width, height, seed):
         self.seed = seed
+        self.x = X
+        self.y = y
+        self.width = width
+        self.height = height
+
         self.segments = []
-        self.heatmap = Heatmap(seed)
+        self.heatmap = Heatmap(seed, width, height)
         self.graph = Graph()
 
         self.highway_count = 0
@@ -96,7 +103,13 @@ class Generator:
 
         return new_segment_a, new_segment_b
 
-    # TO DO
+    def pointInBounds(self, point):
+        if (self.x < point[0] and self.x + self.width > point[0]):
+            if (self.y < point[1] and self.y + self.height > point[1]):
+                return True
+        return False
+
+    # Checks if road can be built and do necessary changes according to local constraints
     def localConstraints(self, road):
         def getClosestRoads(road):
             close_roads = []
@@ -109,6 +122,10 @@ class Generator:
                 if (min_dist < config["HIGHWAY_SEGMENT_LENGTH"]):
                     close_roads.append(other)
             return close_roads
+
+        # Checks is road is outside bounds
+        if not self.pointInBounds(road.end):
+            return False
 
         # Check if max number of highways reached
         if (road.highway == True):
@@ -216,7 +233,7 @@ class Generator:
                 if (max_pop > config["HIGHWAY_BRANCH_POPULATION_THRESHOLD"]):
                     if (np.random.random() < config["HIGHWAY_BRANCH_PROBABILITY"]):
                         branches.append(continueRoad(road, -90 + randomBranchAngle()))
-                    if (np.random.random() < config["HIGHWAY_BRANCH_PROBABILITY"]):
+                    #if (np.random.random() < config["HIGHWAY_BRANCH_PROBABILITY"]):
                         branches.append(continueRoad(road, 90 + randomBranchAngle()))
             elif straight_pop > config["NORMAL_BRANCH_POPULATION_THRESHOLD"]: #or True: # TO DO: check heatmapp
                 branches.append(continue_straight)
@@ -226,7 +243,7 @@ class Generator:
                 if (straight_pop > config["NORMAL_BRANCH_POPULATION_THRESHOLD"]): #or True: # TO DO: check heatmapp
                     if (np.random.random() < config["DEFAULT_BRANCH_PROBABILITY"]):
                         branches.append(branchRoad(road, -90 + randomBranchAngle()))
-                    if (np.random.random() < config["DEFAULT_BRANCH_PROBABILITY"]):
+                    #if (np.random.random() < config["DEFAULT_BRANCH_PROBABILITY"]):
                         branches.append(branchRoad(road, 90 + randomBranchAngle()))
 
             
@@ -238,9 +255,17 @@ class Generator:
 
     # Builds the first one or two network segments
     def makeInitialSegment(self):
-        root = Segment((0, 0), (config["HIGHWAY_SEGMENT_LENGTH"], 0), 0, 
+        # Starting in the center
+        x_center = (2*self.x + self.width) / 2
+        y_center = (2*self.y + self.height) / 2
+        root = Segment((x_center, y_center), (x_center+config["HIGHWAY_SEGMENT_LENGTH"], y_center), 0, 
                         highway = not config["START_WITH_NORMAL_STREETS"])
-        return [root]
+        if not config["TWO_SEGMENTS_INITIALLY"]:
+            return [root]
+        
+        root_opposite = copy.deepcopy(root)
+        root_opposite.end = (root.start[0] - config["HIGHWAY_SEGMENT_LENGTH"], root.end[1])
+        return [root, root_opposite]
 
 
 
@@ -314,5 +339,5 @@ def randomBranchAngle():
     #return np.random.uniform(-0, 0)
     return np.random.uniform(-3, 3)
 
-def generate(seed):
-    return Generator(seed)
+def generate(x, y, width, height, seed):
+    return Generator(x, y, width, height, seed)
